@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Illegal Mexican Cockfight 2</title>
+  <title>{{{ PRODUCT_NAME }}}</title>
   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1,user-scalable=no" />
   <meta name="theme-color" content="#000000" />
@@ -13,9 +13,12 @@
   <link rel="manifest" href="manifest.webmanifest">
 
   <!-- (Optional) Preload build files for a snappier start -->
-  <link rel="preload" href="Build/export.data.unityweb" as="fetch" crossorigin>
-  <link rel="preload" href="Build/export.wasm.unityweb" as="fetch" crossorigin>
-  <link rel="preload" href="Build/export.framework.js.unityweb" as="fetch" crossorigin>
+  <link rel="preload" href="Build/{{{ DATA_FILENAME }}}" as="fetch" crossorigin>
+  <link rel="preload" href="Build/{{{ CODE_FILENAME }}}" as="fetch" crossorigin>
+  <link rel="preload" href="Build/{{{ FRAMEWORK_FILENAME }}}" as="fetch" crossorigin>
+  #if MEMORY_FILENAME
+  <link rel="preload" href="Build/{{{ MEMORY_FILENAME }}}" as="fetch" crossorigin>
+  #endif
 
   <style>
     :root { --bg:#000; --fg:#e6e6e6; --muted:#adadad; }
@@ -76,8 +79,9 @@
       background: rgba(0,0,0,.9); color:#fff; z-index: 9999; padding: 24px;
       font: 600 16px/1.4 system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
     }
-    body[data-mobile="1"] @media (orientation: portrait){
-      #rotate-overlay{ display:grid; }
+    /* FIXED: valid media query with attribute selector */
+    @media (orientation: portrait){
+      body[data-mobile="1"] #rotate-overlay{ display:grid; }
     }
 
     /* ===== Offline banner ===== */
@@ -92,7 +96,7 @@
       <div class="brand">
         <!-- Replace with your logo if desired -->
         <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2l8 5v10l-8 5-8-5V7l8-5zm0 2.3L6 7v8l6 3.7L18 15V7l-6-2.7z"/></svg>
-        <div class="title">Loading Illegal Mexican Cockfight 2</div>
+        <div class="title">Loading {{ PRODUCT_NAME }}</div>
       </div>
       <div class="subtitle" id="load-status">Preparing…</div>
       <div class="bar" aria-hidden="true"><div class="fill" id="load-fill"></div></div>
@@ -142,15 +146,13 @@
     function syncNet(){ net.style.display = navigator.onLine ? 'none' : 'block'; }
     addEventListener('online', syncNet); addEventListener('offline', syncNet); syncNet();
 
-    // Wake Lock (keep screen on) after first interaction
-    async function keepAwake(){ try{ await navigator.wakeLock?.request('screen'); }catch(e){} }
-    addEventListener('pointerdown', keepAwake, { once:true });
-
     // Audio unlock (WebAudio resumes on gesture)
     let audioCtx;
     function unlockAudio(){
-      audioCtx = audioCtx || new (window.AudioContext||window.webkitAudioContext)();
-      audioCtx.resume?.();
+      try{
+        audioCtx = audioCtx || new (window.AudioContext||window.webkitAudioContext)();
+        audioCtx.resume?.();
+      }catch(_){}
       removeEventListener('pointerdown', unlockAudio);
       removeEventListener('touchstart', unlockAudio);
     }
@@ -163,15 +165,21 @@
 
     // ------- Unity bootstrap -------
     const buildUrl = "Build";
-    const loaderUrl = buildUrl + "/export.loader.js";
+    const loaderUrl = buildUrl + "/{{{ LOADER_FILENAME }}}";
     const config = {
-      dataUrl: buildUrl + "/export.data.unityweb",
-      frameworkUrl: buildUrl + "/export.framework.js.unityweb",
-      codeUrl: buildUrl + "/export.wasm.unityweb",
+      dataUrl: buildUrl + "/{{{ DATA_FILENAME }}}",
+      frameworkUrl: buildUrl + "/{{{ FRAMEWORK_FILENAME }}}",
+      codeUrl: buildUrl + "/{{{ CODE_FILENAME }}}",
+      #if MEMORY_FILENAME
+      memoryUrl: buildUrl + "/{{{ MEMORY_FILENAME }}}",
+      #endif
+      #if SYMBOLS_FILENAME
+      symbolsUrl: buildUrl + "/{{{ SYMBOLS_FILENAME }}}",
+      #endif
       streamingAssetsUrl: "StreamingAssets",
-      companyName: "alphapolygon",
-      productName: "webGPU",
-      productVersion: "0.1.0",
+      companyName: "{{{ COMPANY_NAME }}}",
+      productName: "{{{ PRODUCT_NAME }}}",
+      productVersion: "{{{ PRODUCT_VERSION }}}",
       devicePixelRatio: (isMobile ? 1 : (window.devicePixelRatio || 1))
     };
 
@@ -232,30 +240,68 @@
     }
     requestAnimationFrame(step);
 
-    // Fullscreen + Landscape lock after first gesture
-    function goInteractive(){
-      const elem = document.documentElement; // or canvas/container
-      const reqFS = elem.requestFullscreen?.bind(elem) || elem.webkitRequestFullscreen?.bind(elem);
-      if (reqFS) { reqFS().catch(()=>{}); }
+    // --- Minimal diagnostics overlay (helps on real devices) ---
+    const diag = (() => {
+      const el = document.createElement('div');
+      el.id = 'diag'; el.style.cssText =
+        'position:fixed;left:8px;bottom:8px;z-index:99999;background:rgba(0,0,0,.7);'+
+        'color:#fff;font:12px/1.4 system-ui;padding:8px 10px;border-radius:8px;max-width:90vw;display:none';
+      document.body.appendChild(el);
+      return {
+        show(msg){ el.textContent = String(msg); el.style.display='block'; },
+        hide(){ el.style.display='none'; }
+      };
+    })();
 
-      try { if (typeof unityInstance !== 'undefined') unityInstance.SetFullscreen(1); } catch(e){}
+    // --- Robust mobile fullscreen/orientation flow ---
+    let unityInstance; // set after createUnityInstance resolves
 
-      (async ()=>{
-        // Orientation lock requires user gesture and often fullscreen
-        if (screen.orientation?.lock) {
-          try { await screen.orientation.lock('landscape'); }
-          catch(e){ console.warn('Orientation lock failed:', e); }
+    async function enterFullscreen(elem){
+      if (!document.fullscreenElement && elem?.requestFullscreen) {
+        try { await elem.requestFullscreen(); }
+        catch (e) {
+          console.warn('requestFullscreen rejected:', e);
+          diag.show('Fullscreen was blocked by the browser.\nIf embedded in an <iframe>, add allowfullscreen and allow="fullscreen".');
+          // Non-fatal; continue without fullscreen.
         }
-      })();
-
-      removeEventListener('pointerdown', goInteractive);
-      removeEventListener('touchstart', goInteractive);
+      }
     }
-    addEventListener('pointerdown', goInteractive, { once:true });
-    addEventListener('touchstart', goInteractive, { once:true, passive:true });
+    async function lockLandscape(){
+      if (screen.orientation?.lock) {
+        try { await screen.orientation.lock('landscape'); }
+        catch (e) { console.warn('Orientation lock rejected:', e); /* non-fatal */ }
+      }
+    }
+    async function goInteractiveOnce(){
+      window.removeEventListener('pointerdown', goInteractiveOnce);
+      window.removeEventListener('touchstart', goInteractiveOnce);
+
+      // 1) Fullscreen on the canvas first (best compatibility)
+      const canvas = document.getElementById('unity-canvas');
+      await enterFullscreen(canvas);
+
+      // 2) Unity's fullscreen toggle (harmless if not ready)
+      try { unityInstance?.SetFullscreen(1); } catch(_) {}
+
+      // 3) Lock to landscape (higher success after fullscreen)
+      await lockLandscape();
+
+      // 4) Keep screen awake (optional)
+      try { await navigator.wakeLock?.request('screen'); } catch(_) {}
+
+      diag.hide();
+    }
+    window.addEventListener('pointerdown', goInteractiveOnce, { once:true });
+    window.addEventListener('touchstart', goInteractiveOnce, { once:true, passive:true });
+
+    document.addEventListener('fullscreenerror', (e)=>{
+      console.warn('fullscreenerror', e); diag.show('Fullscreen error event fired.');
+    });
+    document.addEventListener('fullscreenchange', ()=>{
+      console.log('fullscreenchange →', !!document.fullscreenElement);
+    });
 
     // Load Unity
-    let unityInstance; // for SetFullscreen attempt above
     const script = document.createElement("script");
     script.src = loaderUrl;
     script.onload = () => {
@@ -263,7 +309,7 @@
         target = Math.min(1, Math.max(0, p));
       }).then((inst) => {
         unityInstance = inst;
-        // Give Unity a brief moment to render first frame, then hide loader
+        // Brief delay to let first frame present, then hide loader
         setTimeout(() => {
           loaderEl.classList.add('hidden');
           setTimeout(() => loaderEl.remove(), 500);
@@ -280,6 +326,17 @@
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('service-worker.js').catch(()=>{});
     }
+
+    // Optional: quick capability table in console
+    console.table({
+      hasFullscreenAPI: !!document.documentElement.requestFullscreen,
+      inIframe: window.self !== window.top,
+      hasOrientationLock: !!(screen.orientation && screen.orientation.lock),
+      hasWakeLock: !!navigator.wakeLock,
+      crossOriginIsolated: !!window.crossOriginIsolated,
+      isIOS: isIOS
+    });
   </script>
 </body>
 </html>
+```0
