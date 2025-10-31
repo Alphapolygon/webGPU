@@ -13,9 +13,9 @@
   <link rel="manifest" href="manifest.webmanifest">
 
   <!-- (Optional) Preload build files for a snappier start -->
-  <link rel="preload" href="Build/export.data.unityweb" as="fetch" crossorigin>
-  <link rel="preload" href="Build/export.wasm.unityweb" as="fetch" crossorigin>
-  <link rel="preload" href="Build/export.framework.js.unityweb" as="fetch" crossorigin>
+  <link rel="preload" href="Build/webGPU.data.unityweb" as="fetch" crossorigin>
+  <link rel="preload" href="Build/webGPU.wasm.unityweb" as="fetch" crossorigin>
+  <link rel="preload" href="Build/webGPU.framework.js.unityweb" as="fetch" crossorigin>
 
   <style>
     :root { --bg:#000; --fg:#e6e6e6; --muted:#adadad; }
@@ -163,11 +163,11 @@
 
     // ------- Unity bootstrap -------
     const buildUrl = "Build";
-    const loaderUrl = buildUrl + "/export.loader.js";
+    const loaderUrl = buildUrl + "/webGPU.loader.js";
     const config = {
-      dataUrl: buildUrl + "/export.data.unityweb",
-      frameworkUrl: buildUrl + "/export.framework.js.unityweb",
-      codeUrl: buildUrl + "/export.wasm.unityweb",
+      dataUrl: buildUrl + "/webGPU.data.unityweb",
+      frameworkUrl: buildUrl + "/webGPU.framework.js.unityweb",
+      codeUrl: buildUrl + "/webGPU.wasm.unityweb",
       streamingAssetsUrl: "StreamingAssets",
       companyName: "alphapolygon",
       productName: "webGPU",
