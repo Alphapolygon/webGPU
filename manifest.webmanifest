@@ -1,6 +1,6 @@
 {
-  "name": "WEBGPU",
-  "short_name": "WEBGPU",
+  "name": "{{ PRODUCT_NAME }}",
+  "short_name": "{{ PRODUCT_NAME }}",
   "start_url": ".",
   "display": "fullscreen",
   "orientation": "landscape",
