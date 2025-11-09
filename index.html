@@ -2,17 +2,15 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Illegal Mexican Cockfight 2</title>
+  <title>webGPU</title>
   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1,user-scalable=no" />
   <meta name="theme-color" content="#000000" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 
-  <!-- PWA -->
   <link rel="manifest" href="manifest.webmanifest">
 
-  <!-- (Optional) Preload build files for a snappier start -->
   <link rel="preload" href="Build/webGPU.data.unityweb" as="fetch" crossorigin>
   <link rel="preload" href="Build/webGPU.wasm.unityweb" as="fetch" crossorigin>
   <link rel="preload" href="Build/webGPU.framework.js.unityweb" as="fetch" crossorigin>
@@ -20,12 +18,14 @@
   <style>
     :root { --bg:#000; --fg:#e6e6e6; --muted:#adadad; }
     html, body {
-      margin:0; padding:0; width:100%; height:100%; background:var(--bg);
-      overscroll-behavior:none; touch-action:none;
+      margin:0; padding:0; background:var(--bg);
+      overscroll-behavior:none;
+      width:100%; min-height:100%;
     }
 
     /* ===== Unity container ===== */
     #unity-container{
+      /* Desktop default: fill window */
       position:fixed; inset:0;
       padding-top:env(safe-area-inset-top);
       padding-right:env(safe-area-inset-right);
@@ -35,7 +35,21 @@
     }
     #unity-canvas{ width:100%; height:100%; display:block; background:var(--bg); }
 
-    /* ===== Custom Loader ===== */
+    /* On touch devices, match stock Unity template behavior: in-flow, width:100%, no forced 100vh */
+    @media (pointer: coarse) {
+      #unity-container{
+        position:static; inset:auto; width:100%; height:auto; display:block;
+        padding: env(safe-area-inset-top) env(safe-area-inset-right)
+                 env(safe-area-inset-bottom) env(safe-area-inset-left);
+      }
+      #unity-canvas{
+        width:100%;
+        height:auto;          /* scale visually, Unity controls internal render size */
+        aspect-ratio: 16 / 9; /* optional stabilizer before first frame; remove if undesired */
+      }
+    }
+
+    /* ===== Simple Loader ===== */
     #loader {
       position: fixed; inset: 0; display: grid; place-items: center;
       background: #0b0b0b; color: var(--fg); z-index: 10000;
@@ -49,18 +63,15 @@
       padding: 28px 24px; border-radius: 20px;
       background: linear-gradient(180deg, #121212, #0d0d0d);
       box-shadow: 0 10px 30px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.04);
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
     }
-    .brand { display:grid; gap:8px; place-items:center; }
-    .brand svg { width:56px; height:56px; }
-    .title { font: 600 18px/1.2 system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
-    .subtitle { font: 500 13px/1.3 system-ui; color: var(--muted); min-height: 1.3em; }
-
+    .title { font-weight: 600; font-size: 18px; line-height: 1.2; }
+    .subtitle { font-weight: 500; font-size: 13px; line-height: 1.3; color: var(--muted); min-height: 1.3em; }
     .bar { position:relative; height:12px; border-radius:999px; overflow:hidden; background: rgba(255,255,255,.06); }
     .fill { width:100%; height:100%; transform-origin:left center; transform:scaleX(0);
       background: linear-gradient(90deg, #6ee7ff, #a78bfa, #60a5fa); filter:saturate(1.1); }
-
-    .nums { display:flex; justify-content:space-between; font:600 12px/1 system-ui; color:#cfcfcf; opacity:.9; }
-    .tips { font:12px/1.35 system-ui; color:#9d9d9d; min-height:2.7em; }
+    .nums { display:flex; justify-content:space-between; font-weight:600; font-size:12px; color:#cfcfcf; opacity:.9; }
+    .tips { font-size:12px; line-height:1.35; color:#9d9d9d; min-height:2.7em; }
     .spinner { width:18px; height:18px; margin:0 auto; border-radius:50%;
       border:2px solid rgba(255,255,255,.15); border-top-color: rgba(255,255,255,.65);
       animation: spin 1s linear infinite; }
@@ -70,14 +81,14 @@
       #loader { transition:none; }
     }
 
-    /* ===== Rotate overlay (mobile portrait) ===== */
+    /* ===== Rotate overlay (shown only on mobile via data attr + media query) ===== */
     #rotate-overlay{
       position: fixed; inset: 0; display:none; place-items:center; text-align:center;
       background: rgba(0,0,0,.9); color:#fff; z-index: 9999; padding: 24px;
       font: 600 16px/1.4 system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
     }
-    body[data-mobile="1"] @media (orientation: portrait){
-      #rotate-overlay{ display:grid; }
+    @media (orientation: portrait) {
+      body[data-mobile="1"] #rotate-overlay { display: grid; }
     }
 
     /* ===== Offline banner ===== */
@@ -89,23 +100,19 @@
   <!-- Loader -->
   <div id="loader" role="status" aria-live="polite">
     <div class="loader-card">
-      <div class="brand">
-        <!-- Replace with your logo if desired -->
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2l8 5v10l-8 5-8-5V7l8-5zm0 2.3L6 7v8l6 3.7L18 15V7l-6-2.7z"/></svg>
-        <div class="title">Loading Illegal Mexican Cockfight 2</div>
-      </div>
+      <div class="title">Loading {{ PRODUCT_NAME }}</div>
       <div class="subtitle" id="load-status">Preparing…</div>
       <div class="bar" aria-hidden="true"><div class="fill" id="load-fill"></div></div>
       <div class="nums">
         <div id="load-percent">0%</div>
         <div id="load-eta">ETA —</div>
       </div>
-      <div class="tips" id="load-tip">Tip: On mobile, first tap enters fullscreen.</div>
+      <div class="tips" id="load-tip">Tip: On mobile, the game stays in-page (no forced fullscreen).</div>
       <div class="spinner" aria-hidden="true"></div>
     </div>
   </div>
 
-  <!-- Portrait warning (shown only on mobile via CSS+JS) -->
+  <!-- Portrait warning (mobile only) -->
   <div id="rotate-overlay">Please rotate your device to landscape</div>
 
   <!-- Offline banner -->
@@ -124,13 +131,9 @@
     const isMobile = isIOS || isAndroid;
     document.body.dataset.mobile = isMobile ? "1" : "0";
 
-    // Friendly heads-up if WebGPU is missing (does not block load)
-    if (!('gpu' in navigator)) {
-      console.log("WebGPU not detected; this build may require WebGPU-capable browsers.");
-    }
-
-    // Keep container matching viewport (fallback for older browsers)
+    // Keep container matching viewport (desktop only)
     function fit(){
+      if (window.matchMedia('(pointer: coarse)').matches) return; // mobile: CSS handles flow
       const cont = document.getElementById('unity-container');
       cont.style.width = window.innerWidth + 'px';
       cont.style.height = window.innerHeight + 'px';
@@ -142,7 +145,7 @@
     function syncNet(){ net.style.display = navigator.onLine ? 'none' : 'block'; }
     addEventListener('online', syncNet); addEventListener('offline', syncNet); syncNet();
 
-    // Wake Lock (keep screen on) after first interaction
+    // Wake Lock after first interaction (best-effort)
     async function keepAwake(){ try{ await navigator.wakeLock?.request('screen'); }catch(e){} }
     addEventListener('pointerdown', keepAwake, { once:true });
 
@@ -159,7 +162,9 @@
 
     // Pointer lock on desktop when clicking canvas (good for FPS)
     const canvasEl = document.getElementById('unity-canvas');
-    canvasEl.addEventListener('click', ()=>{ if (!document.pointerLockElement) canvasEl.requestPointerLock?.(); });
+    if (!isMobile) {
+      canvasEl.addEventListener('click', ()=>{ if (!document.pointerLockElement) canvasEl.requestPointerLock?.(); });
+    }
 
     // ------- Unity bootstrap -------
     const buildUrl = "Build";
@@ -172,10 +177,11 @@
       companyName: "alphapolygon",
       productName: "webGPU",
       productVersion: "0.1.1",
-      devicePixelRatio: (isMobile ? 1 : (window.devicePixelRatio || 1))
+      // IMPORTANT: DPR capped to 1 on mobile to avoid ultra-high render resolutions
+      devicePixelRatio: (isMobile ? 0.7 : (window.devicePixelRatio || 1))
     };
 
-    // Loader UI logic (progress smoothing, ETA, rotating tips)
+    // Loader UI logic (progress smoothing, ETA, tip rotation)
     const loaderEl = document.getElementById('loader');
     const fillEl = document.getElementById('load-fill');
     const pctEl  = document.getElementById('load-percent');
@@ -187,7 +193,7 @@
       "Tip: Rotate your device for landscape play.",
       "Tip: Connect a gamepad for dual-stick controls.",
       "Tip: Close other tabs to free up GPU memory.",
-      "Tip: First tap enables audio and fullscreen.",
+      "Tip: On mobile, stays in-page (no fullscreen).",
       "Tip: Use wired keyboards on mobile with adapters."
     ];
     function prettyETA(seconds){
@@ -196,9 +202,8 @@
       return m ? `${m}m ${s}s` : `${s}s`;
     }
 
-    let t0 = performance.now();
-    let displayed = 0, target = 0, emaRate = 0, lastT = t0, lastTarget = 0;
-    let tipIdx = 0, nextTipAt = t0 + 5000;
+    let displayed = 0, target = 0, emaRate = 0, lastT = performance.now(), lastTarget = 0;
+    let tipIdx = 0, nextTipAt = performance.now() + 5000;
 
     function step(){
       const now = performance.now();
@@ -232,30 +237,10 @@
     }
     requestAnimationFrame(step);
 
-    // Fullscreen + Landscape lock after first gesture
-    function goInteractive(){
-      const elem = document.documentElement; // or canvas/container
-      const reqFS = elem.requestFullscreen?.bind(elem) || elem.webkitRequestFullscreen?.bind(elem);
-      if (reqFS) { reqFS().catch(()=>{}); }
-
-      try { if (typeof unityInstance !== 'undefined') unityInstance.SetFullscreen(1); } catch(e){}
-
-      (async ()=>{
-        // Orientation lock requires user gesture and often fullscreen
-        if (screen.orientation?.lock) {
-          try { await screen.orientation.lock('landscape'); }
-          catch(e){ console.warn('Orientation lock failed:', e); }
-        }
-      })();
-
-      removeEventListener('pointerdown', goInteractive);
-      removeEventListener('touchstart', goInteractive);
-    }
-    addEventListener('pointerdown', goInteractive, { once:true });
-    addEventListener('touchstart', goInteractive, { once:true, passive:true });
+    // NOTE: No fullscreen/orientation-lock attempts here.
 
     // Load Unity
-    let unityInstance; // for SetFullscreen attempt above
+    let unityInstance;
     const script = document.createElement("script");
     script.src = loaderUrl;
     script.onload = () => {
@@ -263,7 +248,6 @@
         target = Math.min(1, Math.max(0, p));
       }).then((inst) => {
         unityInstance = inst;
-        // Give Unity a brief moment to render first frame, then hide loader
         setTimeout(() => {
           loaderEl.classList.add('hidden');
           setTimeout(() => loaderEl.remove(), 500);

@@ -16,7 +16,6 @@
     <type fullname="FPS.WeaponSwayBob" preserve="all" />
     <type fullname="LpvLite_EmissiveProvider" preserve="all" />
     <type fullname="MiniPerfOverlay" preserve="all" />
-    <type fullname="MobileControlsVisibility" preserve="all" />
     <type fullname="MobileGamepadButton" preserve="all" />
     <type fullname="Net.GameBootstrap" preserve="all" />
     <type fullname="Net.PlayerLocalBinder_NGO" preserve="all" />
