@@ -13,7 +13,6 @@
     <type fullname="FPS.ProjectileWeapon_SoA_Bounce" preserve="all" />
     <type fullname="FPS.RecoilKick" preserve="all" />
     <type fullname="FPS.RespawnManager_NGO" preserve="all" />
-    <type fullname="FPS.WeaponSwayBob" preserve="all" />
     <type fullname="LpvLite_EmissiveProvider" preserve="all" />
     <type fullname="MiniPerfOverlay" preserve="all" />
     <type fullname="MobileGamepadButton" preserve="all" />
